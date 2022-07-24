@@ -111,7 +111,7 @@ def main():
 
     ## Train
     trainer = Pretrainer(
-        model, device, vae
+        model, device
     )
     trainer.start_training(epochs=epochs, train_data=train_dataloader, test_data=test_dataloader, lr=lr)
 
