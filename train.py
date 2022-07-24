@@ -36,11 +36,10 @@ def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, devi
                       transforms=transform,
                       vae=vae)
 
-    train_size = int(len(d) * 1 - (test_rate))
-    test_size = int(len(d) * test_rate)
-    adjust = len(d) - (train_size + test_size)
+    train_size = int(len(d) * (1 - test_rate))
+    test_size = len(d) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(
-        d, [train_size, test_size + adjust]
+        d, [train_size, test_size]
     )
 
     train_dataloader = DataLoader(
