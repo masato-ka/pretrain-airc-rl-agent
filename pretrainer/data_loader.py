@@ -18,23 +18,24 @@ class DonkeyDataset(Dataset):
     def __init__(self, path_to_datasets, transforms=None, vae:VAE=None,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
         self.labels = []
-        self.images = []
+        self.latents = []
         self.transforms = transforms
         self.vae = vae
         self.vae.eval()
         self.device=device
         labels_path_pattern = os.path.abspath(os.path.join(path_to_datasets, 'record_*.json'))
-        data_path_pattern = os.path.abspath(os.path.join(path_to_datasets, '*.jpg'))
+        data_path_pattern = os.path.abspath(os.path.join(path_to_datasets, '*.jpg.npy'))
 
         for path in glob(labels_path_pattern):
             self.labels.append(path)
         for path in glob(data_path_pattern):
-            self.images.append(path)
-        self.label = sorted(self.labels, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
-        self.image = sorted(self.images, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
+            self.latents.append(path)
+
+        self.labels = sorted(self.labels, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
+        self.latents = sorted(self.latents, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
 
     def __len__(self):
-        return len(self.images)
+        return len(self.latents)
 
     def _get_telemetry(self, file_path):
         with open(file_path, 'r') as f:
@@ -56,11 +57,9 @@ class DonkeyDataset(Dataset):
         return history
 
 
-    def _preprocess_to_obs(self, image, idx):
-
-        latent, _, _ = self.vae.encode(torch.unsqueeze(image, dim=0).to(self.device))
+    def _preprocess_to_obs(self, latent, idx):
+        latent = torch.Tensor(latent)
         latent = torch.squeeze(latent)
-        #TODO make action history from json file.
         history = self._get_history(idx)
         history = torch.Tensor(history)
         latent = torch.cat([latent.detach(), history], dim=0)
@@ -70,15 +69,10 @@ class DonkeyDataset(Dataset):
 
     def __getitem__(self, idx):
         label_file_path = self.labels[idx]
-        image_file_path = self.images[idx]
+        latent_file_path = self.latents[idx]
 
-        image = Image.open(image_file_path)
-        if self.transforms:
-            image = self.transforms(image)
-        else:
-            image = np.array(image).astype(np.float32).transpose(2,1,0)
-            torchvision.transforms.ToTensor(image)
-        obs = self._preprocess_to_obs(image.to(self.device), idx)
+        latent = np.load(latent_file_path)
+        obs = self._preprocess_to_obs(latent, idx)
         telemetry = self._get_telemetry(label_file_path)
         #TODO 結果をcacheしたい。python3.9ならcacheデコレータつかえる？
         return obs, torch.Tensor(telemetry)

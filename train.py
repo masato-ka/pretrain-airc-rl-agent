@@ -1,8 +1,11 @@
 import argparse
 import os
+from glob import glob
 
+import numpy as np
 import torch
 import torchvision
+from PIL import Image
 from stable_baselines3 import SAC
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -13,13 +16,24 @@ from pretrainer.pretrainer import Pretrainer
 from pretrainer.vae import VAE
 
 
-def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None):
+def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, device=None):
+
+    transform = transforms.Compose([
+        torchvision.transforms.Resize((120, 160), ),
+        torchvision.transforms.Lambda(lambda x: x.crop((0, 40, 160, 120))),
+        transforms.ToTensor(),
+    ])
+    image_files = glob(os.path.abspath(os.path.join(dataset_folder,'*.jpg')))
+    for f in image_files:
+        image = Image.open(f)
+        image = transform(image)
+        latent, _, _ = vae.encode(torch.unsqueeze(image.to(device), dim=0))
+        latent = torch.squeeze(latent).detach().cpu().numpy()
+        np.save(f+'.npy', latent)
+
+
     d = DonkeyDataset(path_to_datasets=dataset_folder,
-                      transforms=transforms.Compose([
-                          torchvision.transforms.Resize((120, 160), ),
-                          torchvision.transforms.Lambda(lambda x: x.crop((0, 40, 160, 120))),
-                          transforms.ToTensor(),
-                      ]),
+                      transforms=transform,
                       vae=vae)
 
     train_size = int(len(d) * 1 - (test_rate))
@@ -56,7 +70,7 @@ def _parse_args():
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--use-cuda', type=bool, default=False)
-    parser.add_argument('--vae-pretrain', type=bool, default='vae,pth')
+    parser.add_argument('--vae-pretrain', type=str, default='vae,pth')
 
     # Data, model, and output directories
     parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
