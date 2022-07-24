@@ -94,8 +94,7 @@ def main():
     epochs = args.epochs
     batch_size = args.batch_size
     lr = args.learning_rate
-    save_path = args.model_dir
-
+    save_path = os.path.join(args.model_dir, 'pretrain-sac.pth')
     ## load_vae_model
     vae = VAE()
     vae.load_state_dict(torch.load(vae_model_path, map_location=device))

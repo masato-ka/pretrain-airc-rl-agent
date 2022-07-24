@@ -15,7 +15,6 @@ class Pretrainer():
 
 
     def train(self, epoch, train_data, optimizer, criteria):
-        train_batch_loss = 0.0
         train_epoch_loss = 0.0
         for i, (data, target) in enumerate(train_data):
             data = data.to(self.device); target = target.to(self.device)
@@ -26,7 +25,7 @@ class Pretrainer():
             optimizer.step()
             train_epoch_loss += loss.item()
         train_epoch_loss /= len(train_data)
-        print(f"train:[epoch:{epoch}] loss: {train_batch_loss: .4f}")
+        print(f"train:[epoch:{epoch}] loss: {train_epoch_loss: .4f}")
         self.sw.add_scalar('Loss/train',train_epoch_loss, epoch)
 
     def evaluate(self, epoch, test_data, optimizer, criteria):
