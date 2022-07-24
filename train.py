@@ -68,20 +68,20 @@ def _parse_args():
 
 
 def main():
-    parser = _parse_args()
+    args, _ = _parse_args()
 
     device = None
-    if parser.use_cuda:
+    if args.use_cuda:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
         device = torch.device('cpu')
 
-    vae_model_path = parser.vae_pretrain
-    dataset_folder = parser.train
-    epochs = parser.epochs
-    batch_size = parser.batch_size
-    lr = parser.learning_rate
-    save_path = parser.model_dir
+    vae_model_path = args.vae_pretrain
+    dataset_folder = args.train
+    epochs = args.epochs
+    batch_size = args.batch_size
+    lr = args.learning_rate
+    save_path = args.model_dir
 
     ## load_vae_model
     vae = VAE()
