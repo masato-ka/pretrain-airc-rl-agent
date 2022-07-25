@@ -5,7 +5,7 @@ from glob import glob
 import numpy as np
 import torch
 import torchvision
-import tqdm as tqdm
+from tqdm import tqdm
 from PIL import Image
 from stable_baselines3 import SAC
 from torch.utils.data import DataLoader
@@ -94,7 +94,7 @@ def main():
 
     device = None
     if args.use_cuda:
-        logger.info('if your environment have cudam, use cuda device.')
+        logger.info('if your environment have cuda device, use cuda device.')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
         logger.info('use cpu device')
