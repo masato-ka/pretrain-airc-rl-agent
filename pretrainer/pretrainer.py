@@ -3,6 +3,8 @@ import torch
 from torch.optim import Adam
 from torch.nn import Module, MSELoss
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+
 from pretrainer.vae import VAE
 
 
@@ -16,7 +18,7 @@ class Pretrainer():
 
     def train(self, epoch, train_data, optimizer, criteria):
         train_epoch_loss = 0.0
-        for i, (data, target) in enumerate(train_data):
+        for i, (data, target) in enumerate(tqdm(train_data)):
             data = data.to(self.device); target = target.to(self.device)
             optimizer.zero_grad()
             r = self.model(data)
@@ -30,7 +32,7 @@ class Pretrainer():
 
     def evaluate(self, epoch, test_data, optimizer, criteria):
         evaluate_epoch_loss = 0.0
-        for i, (data, target) in enumerate(test_data):
+        for i, (data, target) in enumerate(tqdm(test_data)):
             data=data.to(self.device); target=target.to(self.device)
             r = self.model(data)
             loss = criteria(r, target)
