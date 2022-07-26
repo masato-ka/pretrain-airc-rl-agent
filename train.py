@@ -78,7 +78,7 @@ def _parse_args():
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--use-cuda', type=bool, default=False)
     parser.add_argument('--vae-pretrain', type=str, default='vae,pth')
-
+    parser.add_argument('--use-sde', type=bool, defalt=False)
     # Data, model, and output directories
     parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
     parser.add_argument('--model-dir', type=str, default=os.environ['SM_MODEL_DIR'])
@@ -127,7 +127,8 @@ def main():
     ## Prepare target model.
     logger.info('start create SAC policy model.')
     env = DummyEnv(z_dim=32)
-    sac = SAC('MlpPolicy', env=env, policy_kwargs=dict(activation_fn=torch.nn.ReLU, net_arch=[32, 32]))
+    sac = SAC('MlpPolicy', env=env,
+              policy_kwargs=dict(activation_fn=torch.nn.ReLU, net_arch=[32, 32], use_sde=args.use_sde))
     model = sac.policy.to(device)
     logger.info('complete create SAC policy model.')
 
@@ -140,7 +141,7 @@ def main():
     trainer.start_training(epochs=epochs, train_data=train_dataloader, test_data=test_dataloader, lr=lr)
 
     logger.info('save result to {}'.format(save_path))
-    torch.save(model.state_dict(), save_path)
+    torch.save(model.state_dict(), save_path, _use_new_zipfile_serialization=False)
 
 
 if __name__ == '__main__':
