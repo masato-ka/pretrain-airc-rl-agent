@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from pretrainer.dummy_env import DummyEnv
-from pretrainer.data_loader import DonkeyDataset
+from pretrainer.data_loader import DonkeyDataset, JetBotDataset
 from pretrainer.pretrainer import Pretrainer
 from pretrainer.utils import get_logger
 from pretrainer.vae import VAE
@@ -38,7 +38,7 @@ def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, devi
         latent = torch.squeeze(latent).detach().cpu().numpy()
         np.save(f + '.npy', latent)
 
-    d = DonkeyDataset(path_to_datasets=dataset_folder,
+    d = JetBotDataset(path_to_datasets=dataset_folder,
                       transforms=transform,
                       vae=vae)
 
@@ -78,7 +78,7 @@ def _parse_args():
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--use-cuda', type=bool, default=False)
     parser.add_argument('--vae-pretrain', type=str, default='vae,pth')
-    parser.add_argument('--use-sde', type=bool, defalt=False)
+    parser.add_argument('--use-sde', type=bool, default=False)
     # Data, model, and output directories
     parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
     parser.add_argument('--model-dir', type=str, default=os.environ['SM_MODEL_DIR'])
@@ -113,7 +113,7 @@ def main():
     logger.info('Epochs: {}'.format(epochs))
     logger.info('Batch size: {}'.format(batch_size))
     logger.info('Learning rate: {}'.format(lr))
-
+    logger.info('SDE mode: {}'.format(args.use_sde))
     ## load_vae_model
     logger.info('loading vae pretrain model.')
     vae = VAE()
