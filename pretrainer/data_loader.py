@@ -10,19 +10,16 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import transforms
 
-from pretrainer.vae import VAE
-
 
 class JetBotDataset(Dataset):
 
-    def __init__(self, path_to_datasets, transforms=None, vae:VAE=None,
+    def __init__(self, path_to_datasets, transforms=None, history_size=20,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
         self.labels = []
         self.latents = []
         self.transforms = transforms
-        self.vae = vae
-        self.vae.eval()
         self.device=device
+        self.history_size = history_size
         labels_path_pattern = os.path.abspath(os.path.join(path_to_datasets, '*.jpg'))
         data_path_pattern = os.path.abspath(os.path.join(path_to_datasets, '*.jpg.npy'))
 
@@ -31,8 +28,8 @@ class JetBotDataset(Dataset):
         for path in glob(data_path_pattern):
             self.latents.append(path)
 
-        self.labels = sorted(self.labels, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
-        self.latents = sorted(self.latents, key=lambda x:int(re.sub(r'\D', "", os.path.basename(x))))
+        self.labels = sorted(self.labels, key=lambda x:os.path.basename(x).split("_")[2].split('.')[0])
+        self.latents = sorted(self.latents, key=lambda x:os.path.basename(x).split("_")[2].split('.')[0])
 
     def __len__(self):
         return len(self.latents)
@@ -43,23 +40,23 @@ class JetBotDataset(Dataset):
         angle = float(file_name.split('_')[1])
         return angle, throttle
 
-    def _get_history(self, idx):
-        offset = 20 if idx > 20 else 20-idx
+    def _get_history(self, idx, history_size=20):
+        offset = history_size if idx > history_size else history_size-idx
         history = [self._get_telemetry(p) for p in self.labels[idx-offset:idx]]
         history = np.asarray(history).astype(np.float32)
         history = history.reshape((len(history)*2))
-        padding = (40 - len(history)) if len(history) < 40 else 0
-        if len(history) < 40:
-            padding = 40 - len(history)
+        padding = ((history_size*2) - len(history)) if len(history) < (history_size*2) else 0
+        if len(history) < (history_size*2):
+            padding = (history_size*2) - len(history)
             padding_data = np.zeros(padding).astype(np.float32)
             history = np.hstack((padding_data, history))
         return history
 
 
-    def _preprocess_to_obs(self, latent, idx):
+    def _preprocess_to_obs(self, latent, idx, history_size=20):
         latent = torch.Tensor(latent)
         latent = torch.squeeze(latent)
-        history = self._get_history(idx)
+        history = self._get_history(idx, history_size)
         history = torch.Tensor(history)
         latent = torch.cat([latent.detach(), history], dim=0)
         latent.detach().cpu().numpy()
@@ -71,7 +68,7 @@ class JetBotDataset(Dataset):
         latent_file_path = self.latents[idx]
 
         latent = np.load(latent_file_path)
-        obs = self._preprocess_to_obs(latent, idx)
+        obs = self._preprocess_to_obs(latent, idx, self.history_size)
         telemetry = self._get_telemetry(label_file_path)
         #TODO 結果をcacheしたい。python3.9ならcacheデコレータつかえる？
         return obs, torch.Tensor(telemetry)
@@ -79,14 +76,15 @@ class JetBotDataset(Dataset):
 
 class DonkeyDataset(Dataset):
 
-    def __init__(self, path_to_datasets, transforms=None, vae:VAE=None,
+    def __init__(self, path_to_datasets, transforms=None, history_size=20,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
         self.labels = []
         self.latents = []
         self.transforms = transforms
-        self.vae = vae
-        self.vae.eval()
         self.device=device
+        self.agent_min_throttle = 0.6
+        self.agent_max_throttle = 0.9
+        self.history_size = history_size
         labels_path_pattern = os.path.abspath(os.path.join(path_to_datasets, 'record_*.json'))
         data_path_pattern = os.path.abspath(os.path.join(path_to_datasets, '*.jpg.npy'))
 
@@ -106,25 +104,25 @@ class DonkeyDataset(Dataset):
             telem = json.load(f)
             throttle = telem['user/throttle']
             angle = telem['user/angle']
-        return (angle, throttle)
+        return angle, throttle
 
-    def _get_history(self, idx):
-        offset = 20 if idx > 20 else 20-idx
+    def _get_history(self, idx, history_size=20):
+        offset = history_size if idx > history_size else history_size-idx
         history = [self._get_telemetry(p) for p in self.labels[idx-offset:idx]]
         history = np.asarray(history).astype(np.float32)
         history = history.reshape((len(history)*2))
-        padding = (40 - len(history)) if len(history) < 40 else 0
-        if len(history) < 40:
-            padding = 40 - len(history)
+        padding = ((history_size*2) - len(history)) if len(history) < 40 else 0
+        if len(history) < (history_size*2):
+            padding = (history_size*2) - len(history)
             padding_data = np.zeros(padding).astype(np.float32)
             history = np.hstack((padding_data, history))
         return history
 
 
-    def _preprocess_to_obs(self, latent, idx):
+    def _preprocess_to_obs(self, latent, idx, history_size=20):
         latent = torch.Tensor(latent)
         latent = torch.squeeze(latent)
-        history = self._get_history(idx)
+        history = self._get_history(idx, history_size)
         history = torch.Tensor(history)
         latent = torch.cat([latent.detach(), history], dim=0)
         latent.detach().cpu().numpy()
@@ -136,7 +134,7 @@ class DonkeyDataset(Dataset):
         latent_file_path = self.latents[idx]
 
         latent = np.load(latent_file_path)
-        obs = self._preprocess_to_obs(latent, idx)
+        obs = self._preprocess_to_obs(latent, idx, self.history_size)
         telemetry = self._get_telemetry(label_file_path)
         #TODO 結果をcacheしたい。python3.9ならcacheデコレータつかえる？
         return obs, torch.Tensor(telemetry)
@@ -144,11 +142,11 @@ class DonkeyDataset(Dataset):
 
 
 if __name__ == '__main__':
-    d = DonkeyDataset("", transforms=transforms.Compose([
+    d = JetBotDataset("/Users/kawamuramasato/Desktop/dataset", transforms=transforms.Compose([
         torchvision.transforms.Resize((120, 160)),
         torchvision.transforms.Lambda(lambda x: x.crop((0, 40, 160, 120))),
         transforms.ToTensor(),
-    ]))
+    ]), history_size=0)
 
     r=0.3
 
@@ -158,6 +156,8 @@ if __name__ == '__main__':
     train_dataset, test_dataset = torch.utils.data.random_split(
         d, [train_size, test_size+adjust]
     )
+
+    print(train_dataset[0])
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -177,6 +177,6 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    for i, (data, target) in enumerate(test_dataloader):
-        print(data)
-        print(target)
+    # for i, (data, target) in enumerate(test_dataloader):
+    #     print(data)
+    #     print(target)

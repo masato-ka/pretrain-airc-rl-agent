@@ -21,7 +21,9 @@ import logging
 logger = get_logger(__name__)
 
 
-def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, device=None):
+
+
+def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, device=None, history_size=20):
     logger.info(f'start preparing dataset.')
     transform = transforms.Compose([
         torchvision.transforms.Resize((120, 160), ),
@@ -38,9 +40,8 @@ def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, devi
         latent = torch.squeeze(latent).detach().cpu().numpy()
         np.save(f + '.npy', latent)
 
-    d = JetBotDataset(path_to_datasets=dataset_folder,
-                      transforms=transform,
-                      vae=vae)
+    d = DonkeyDataset(path_to_datasets=dataset_folder,
+                      transforms=transform, history_size=history_size)
 
     train_size = int(len(d) * (1 - test_rate))
     test_size = len(d) - train_size
@@ -78,7 +79,9 @@ def _parse_args():
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--use-cuda', type=bool, default=False)
     parser.add_argument('--vae-pretrain', type=str, default='vae,pth')
+    parser.add_argument('--vae-zdim', type=int, default=32)
     parser.add_argument('--use-sde', type=bool, default=False)
+    parser.add_argument('--history-size', type=int, default=20)
     # Data, model, and output directories
     parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
     parser.add_argument('--model-dir', type=str, default=os.environ['SM_MODEL_DIR'])
@@ -101,6 +104,8 @@ def main():
         device = torch.device('cpu')
 
     vae_model_path = args.vae_pretrain
+    vae_zdim = args.vae_zdim
+    history_size = args.history_size
     dataset_folder = args.train
     epochs = args.epochs
     batch_size = args.batch_size
@@ -108,6 +113,8 @@ def main():
     save_path = os.path.join(args.model_dir, 'pretrain-sac.pth')
 
     logger.info('VAE pretrain model: {}'.format(vae_model_path))
+    logger.info('VAE Z_DIM size: {}'.format(vae_zdim))
+    logger.info('history size: {}'.format(history_size))
     logger.info('Dataset load from: {}'.format(dataset_folder))
     logger.info('model artifact save path:'.format(save_path))
     logger.info('Epochs: {}'.format(epochs))
@@ -116,17 +123,20 @@ def main():
     logger.info('SDE mode: {}'.format(args.use_sde))
     ## load_vae_model
     logger.info('loading vae pretrain model.')
-    vae = VAE()
+    vae = VAE(z_dim=vae_zdim)
     vae.load_state_dict(torch.load(vae_model_path, map_location=device))
     vae.eval()
     logger.info('loaded vae model complete.')
 
     ## Prepare dataset.
-    train_dataloader, test_dataloader = prepare_dataset(dataset_folder=dataset_folder, batch_size=batch_size, vae=vae)
+    train_dataloader, test_dataloader = prepare_dataset(dataset_folder=dataset_folder,
+                                                        batch_size=batch_size,
+                                                        vae=vae,
+                                                        history_size=history_size)
 
     ## Prepare target model.
     logger.info('start create SAC policy model.')
-    env = DummyEnv(z_dim=32)
+    env = DummyEnv(z_dim=vae_zdim, n_command_history=history_size)
     sac = SAC('MlpPolicy', env=env,
               policy_kwargs=dict(activation_fn=torch.nn.ReLU, net_arch=[32, 32], use_sde=args.use_sde))
     model = sac.policy.to(device)
