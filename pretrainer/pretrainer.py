@@ -79,9 +79,9 @@ class Pretrainer():
         self.model.to(self.device)
         for epoch in range(epochs):
             self.model.train()
-            train_loss = self.train(epoch, train_data, optimizer, criteria)
+            train_loss = self.train(epoch, self.train_data_list, optimizer, criteria)
             self.model.eval()
-            eval_loss = self.evaluate(epoch, test_data, optimizer, criteria)
+            eval_loss = self.evaluate(epoch, self.test_data_list, optimizer, criteria)
             self.early_stopping(train_loss, eval_loss)
             if self.early_stopping.early_stop:
                 print('Early stopping: epoch {}'.format(epoch))
