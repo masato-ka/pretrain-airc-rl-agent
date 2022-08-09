@@ -35,6 +35,8 @@ class Pretrainer():
     def __init__(self, model: Module, device, tensorlog_dir='./logdir'):
         self.model = model
         self.device = device
+        self.train_data_list = None
+        self.test_data_list = None
         self.sw = SummaryWriter(tensorlog_dir)
         self.early_stopping = EarlyStopping()
 
@@ -70,6 +72,10 @@ class Pretrainer():
     def start_training(self, epochs, train_data, test_data, lr=1e-3):
         optimizer = Adam(self.model.parameters(), lr=lr)
         criteria = MSELoss()
+        if self.train_data_list is None:
+            self.train_data_list = list(train_data)
+        if self.test_data_list is None:
+            self.test_data_list = list(test_data)
         self.model.to(self.device)
         for epoch in range(epochs):
             self.model.train()

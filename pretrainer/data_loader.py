@@ -59,7 +59,7 @@ class JetBotDataset(Dataset):
         history = self._get_history(idx, history_size)
         history = torch.Tensor(history)
         latent = torch.cat([latent.detach(), history], dim=0)
-        latent.detach().cpu().numpy()
+        latent
         return latent
 
 
@@ -125,7 +125,7 @@ class DonkeyDataset(Dataset):
         history = self._get_history(idx, history_size)
         history = torch.Tensor(history)
         latent = torch.cat([latent.detach(), history], dim=0)
-        latent.detach().cpu().numpy()
+        latent
         return latent
 
 

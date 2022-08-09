@@ -55,7 +55,7 @@ def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, devi
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,
+        num_workers=os.cpu_count(),
         drop_last=True,
         pin_memory=True
     )
@@ -64,8 +64,7 @@ def prepare_dataset(dataset_folder, batch_size=64, test_rate=0.3, vae=None, devi
         test_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,
-        drop_last=True,
+        num_workers=os.cpu_count(),
         pin_memory=True
     )
     logger.info('complete prepare dataset.')
